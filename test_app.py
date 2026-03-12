@@ -74,18 +74,37 @@ class TestApp:
         res = test_client.get("http://testserver/book/")
 
         assert res.text == "Hello from book"
-    
-    def test_custom_exception_handler(self, app:PyFramework, test_client):
-        
+
+    def test_custom_exception_handler(self, app: PyFramework, test_client):
+
         def on_exception(request, response, exp_class):
-            response.text = str(exp_class)
+            response.text = "Something went wrong"
 
         app.add_exception_handler(on_exception)
 
-        @app.router('/exception/')
+        @app.router("/exception/")
         def exception(request, response):
             raise AttributeError("some exception")
-        
-        res = test_client.get('http://testserver/exception/')
 
-        assert res.text == "some exception"
+        res = test_client.get("http://testserver/exception/")
+
+        assert res.text == "Something went wrong"
+
+    def test_custom_exception_handler_witj_class_based_router(
+        self, app: PyFramework, test_client
+    ):
+
+        def on_exception(request, response, exception):
+            response.text = "Exception from class"
+
+        app.add_exception_handler(on_exception)
+
+        @app.router("/book/")
+        class Book:
+
+            def get(self, request, response):
+                raise AttributeError("Error")
+
+        res = test_client.get("http://testserver/book/")
+
+        assert res.text == "Exception from class"

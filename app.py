@@ -9,6 +9,7 @@ from webob import Request, Response
 class PyFramework:
     def __init__(self) -> None:
         self.routes = dict()
+        self.exception_handler = None
 
     def __call__(self, environ, start_response) -> Any:
         # status = "200 CREATED"
@@ -19,6 +20,9 @@ class PyFramework:
         response = self.handle_request(request)
 
         return response(environ, start_response)
+
+    def add_exception_handler(self, handler):
+        self.exception_handler = handler
 
     def handle_request(self, request):
         response = Response()
@@ -34,10 +38,23 @@ class PyFramework:
                 response.text = "METHOD NOT ALLOWED"
                 return response
 
-            handler_method(request, response, **kwargs)
-
+            try:
+               
+                handler_method(request, response, **kwargs)
+            except Exception as e:
+                if self.exception_handler is not None:
+                    self.exception_handler(request, response, e)
+                else:
+                    raise e
         elif inspect.isfunction(handler):
-            handler(request, response, **kwargs)
+            try:
+                handler(request, response, **kwargs)
+            except Exception as e:
+                if self.exception_handler is not None:
+                    self.exception_handler(request, response, e)
+                else:
+                    raise e
+
         else:
             self.default_response(response)
 
@@ -63,17 +80,15 @@ class PyFramework:
             return handler
 
         return wrapper
-    
+
     def add_router(self, path, handler):
-        assert path not in self.routes , f"Path {path} already exists" 
+        assert path not in self.routes, f"Path {path} already exists"
         self.routes[path] = handler
 
-    def add_exception_handler(self, exception):
-        return exception(request,)
+    # def add_exception_handler(self, handler):
+    #     self.exception_handler = handler
 
     def test_session(self):
         session = requests.Session()
         session.mount("http://testserver", wsgiadapter.WSGIAdapter(self))
         return session
-    
-
