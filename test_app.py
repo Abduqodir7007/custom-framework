@@ -1,10 +1,10 @@
 import pytest
+from middleware import Middleware
 from conftest import app, test_client
 from app import PyFramework
 
 
 class TestApp:
-    # client = test_client()
     def test_route_registration(self, app: PyFramework):
 
         @app.router("/home/")
@@ -108,3 +108,30 @@ class TestApp:
         res = test_client.get("http://testserver/book/")
 
         assert res.text == "Exception from class"
+
+    def test_middleware_methods_are_called(self, app: PyFramework, test_client):
+        is_process_request_called = False
+        is_process_response_called = False
+
+        class SimpleMiddleware(Middleware):
+            def __init__(self, app):
+                super().__init__(app)
+
+            def process_request(self, request):
+
+                nonlocal is_process_request_called
+                is_process_request_called = True
+
+            def process_response(self, request, response):
+                nonlocal is_process_response_called
+                is_process_response_called = True
+
+        app.add_middleware(SimpleMiddleware)
+        @app.router("/home/")
+        def home(request, response):
+            response.text = "Hello from middleware"
+
+        res = test_client.get("http://testserver/home/")
+
+        assert is_process_response_called is True
+        assert is_process_request_called is True

@@ -1,24 +1,27 @@
 import inspect
 import requests
 import wsgiadapter
-from typing import Any
 from parse import parse
 from webob import Request, Response
+from middleware import Middleware
 
 
 class PyFramework:
     def __init__(self) -> None:
         self.routes = dict()
         self.exception_handler = None
+        self.middleware = Middleware(self)
 
-    def __call__(self, environ, start_response) -> Any:
+    def __call__(self, environ, start_response):
         # status = "200 CREATED"
 
         # response_header = [("Content-type", "text/plain")]
         # start_response(status, response_header)
+        return self.middleware(environ, start_response)
+
+    def wsgi_app(self, environ, start_response):
         request = Request(environ)
         response = self.handle_request(request)
-
         return response(environ, start_response)
 
     def add_exception_handler(self, handler):
@@ -39,7 +42,6 @@ class PyFramework:
                 return response
 
             try:
-               
                 handler_method(request, response, **kwargs)
             except Exception as e:
                 if self.exception_handler is not None:
@@ -68,6 +70,9 @@ class PyFramework:
 
         return None, None
 
+    def add_middleware(self, middleware_class):
+        self.middleware.add(middleware_class)
+
     def default_response(self, response):
         response.status_code = 404
         response.text = "Not found"
@@ -84,9 +89,6 @@ class PyFramework:
     def add_router(self, path, handler):
         assert path not in self.routes, f"Path {path} already exists"
         self.routes[path] = handler
-
-    # def add_exception_handler(self, handler):
-    #     self.exception_handler = handler
 
     def test_session(self):
         session = requests.Session()
